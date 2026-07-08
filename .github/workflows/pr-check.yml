@@ -1,0 +1,66 @@
+name: pr-check
+
+# Test build against a lutaml-model PR. Triggered by lutaml-model's
+# js-pr-check.yml workflow via repository_dispatch when a PR touches
+# lib/, Gemfile, Rakefile, or .gitmodules. Builds both flavors and
+# runs the smoke tests; does NOT publish to npm.
+#
+# This catches JS regressions before the Ruby PR merges, so we don't
+# discover a broken build only at next Ruby release time.
+
+on:
+  repository_dispatch:
+    types: [ js-pr-check ]
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: false
+
+      - name: Install Opal
+        run: gem install opal --no-document
+
+      - name: Install ragel
+        run: sudo apt-get update && sudo apt-get install -y ragel
+
+      - name: Install JS deps
+        run: npm install
+
+      - name: Print trigger payload
+        # For audit: which PR triggered this build.
+        run: |
+          echo "PR: ${{ github.event.client_payload.repo }}#${{ github.event.client_payload.pr_number }}"
+          echo "Head SHA: ${{ github.event.client_payload.sha }}"
+          echo "Head ref: ${{ github.event.client_payload.ref }}"
+
+      - name: Build from PR head
+        # client_payload.repo is "lutaml/lutaml-model" for same-org PRs.
+        # For fork PRs it would be "<owner>/lutaml-model" — the PAT
+        # must have read access to that fork.
+        run: node scripts/build.js
+        env:
+          VERSION: "0.0.0-pr.${{ github.event.client_payload.pr_number }}"
+          RUBY_REF: ${{ github.event.client_payload.sha }}
+          RUBY_REPO: "https://github.com/${{ github.event.client_payload.repo }}.git"
+          OPAL_PREFORK_DISABLE: "1"
+
+      - name: Smoke test (self-contained)
+        run: VARIANT=self-contained node scripts/test.js
+
+      - name: Smoke test (external)
+        run: VARIANT=external node scripts/test.js

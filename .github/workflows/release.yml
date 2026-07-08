@@ -21,8 +21,15 @@ on:
         description: "Version to publish (x.y.z, major, minor, patch, skip)"
         required: true
         default: 'skip'
+      ruby_ref:
+        description: Override the Ruby ref to build from (branch/tag/SHA). Defaults to v<next_version>.
+        required: false
+  # Stable release: fired by lutaml-model's release chain after the gem
+  # passes its tests and is published to RubyGems.
+  # Dev build: fired by lutaml-model on every push to main. Publishes
+  # under the npm `next` dist-tag (does NOT touch `latest`).
   repository_dispatch:
-    types: [ do-release ]
+    types: [ do-release, js-sync-main ]
 
 jobs:
   release:
@@ -30,25 +37,58 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Resolve version
-        id: ver
+      - name: Resolve build inputs
+        id: inputs
         run: |
-          VERSION="${{ github.event.client_payload.version || github.event.inputs.next_version }}"
+          # VERSION
+          if [ -n "${{ github.event.client_payload.version }}" ]; then
+            VERSION="${{ github.event.client_payload.version }}"
+          else
+            VERSION="${{ github.event.inputs.next_version }}"
+          fi
           if [ -z "$VERSION" ] || [ "$VERSION" = "skip" ]; then
             VERSION=$(node -p "require('./package.json').version")
           fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # RUBY_REF
+          if [ -n "${{ github.event.client_payload.ruby_ref }}" ]; then
+            RUBY_REF="${{ github.event.client_payload.ruby_ref }}"
+          elif [ -n "${{ github.event.inputs.ruby_ref }}" ]; then
+            RUBY_REF="${{ github.event.inputs.ruby_ref }}"
+          elif [ "$VERSION" != "skip" ] && [ -n "$VERSION" ]; then
+            RUBY_REF="v$VERSION"
+          else
+            RUBY_REF="main"
+          fi
+
+          # Dev builds (js-sync-main) publish under the `next` dist-tag
+          # and use a SHA-stamped version so they don't collide with
+          # stable releases.
+          if [ "${{ github.event.action }}" = "js-sync-main" ]; then
+            VERSION="0.0.0-dev.${{ github.event.client_payload.sha }}"
+            RUBY_REF="${{ github.event.client_payload.sha }}"
+            DIST_TAG="next"
+          else
+            DIST_TAG="latest"
+          fi
+
+          {
+            echo "version=$VERSION"
+            echo "ruby_ref=$RUBY_REF"
+            echo "dist_tag=$DIST_TAG"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           # NO registry-url — prevents setup-node from writing
+          # _authToken to .npmrc, which would shadow OIDC auth.
 
       - name: Upgrade npm CLI (Trusted Publishers needs 10.9.1+)
         run: |
           npm install -g npm@latest
-          npm --version          # _authToken to .npmrc, which would shadow OIDC auth.
+          npm --version
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -59,14 +99,20 @@ jobs:
       - name: Install Opal
         run: gem install opal --no-document
 
+      - name: Install ragel
+        # Required by `rake vendor:prepare` in lutaml-model to regenerate
+        # the opal-oga/opal-ruby-ll forks' parser/lexer outputs that
+        # bundle install's C-ext compilation step needs.
+        run: sudo apt-get update && sudo apt-get install -y ragel
+
       - name: Install JS deps
         run: npm install
 
       - name: Build
         run: node scripts/build.js
         env:
-          VERSION: ${{ steps.ver.outputs.version }}
-          RUBY_REF: ${{ github.event.client_payload.ruby_ref || format('v{0}', steps.ver.outputs.version) }}
+          VERSION: ${{ steps.inputs.outputs.version }}
+          RUBY_REF: ${{ steps.inputs.outputs.ruby_ref }}
           OPAL_PREFORK_DISABLE: "1"
 
       - name: Smoke test
@@ -74,10 +120,18 @@ jobs:
 
       - name: Set package version
         run: |
-          VERSION="${{ steps.ver.outputs.version }}"
+          VERSION="${{ steps.inputs.outputs.version }}"
           if [ "$VERSION" != "$(node -p "require('./package.json').version")" ]; then
             npm version "$VERSION" --no-git-tag-version
           fi
 
       - name: Publish to npm (Trusted Publisher — passwordless OIDC)
-        run: npm publish --provenance --access public
+        # Dev builds (js-sync-main) and manual workflow_dispatch both
+        # publish. pr-check.yml (js-pr-check event) does NOT publish —
+        # it has its own workflow.
+        run: |
+          if [ "${{ steps.inputs.outputs.dist_tag }}" = "next" ]; then
+            npm publish --provenance --access public --tag next
+          else
+            npm publish --provenance --access public
+          fi
