@@ -1,4 +1,9 @@
 // Build script for @lutaml/lutaml-model.
+//
+// Clones lutaml-model at RUBY_REF (default: the tag matching VERSION),
+// checks out its submodules (the opal-oga and opal-ruby-ll forks),
+// regenerates the ragel/ruby-ll outputs the forks gitignore, then runs
+// the Opal build via scripts/build.rb.
 const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
@@ -8,6 +13,8 @@ const DIST = path.join(ROOT, "dist");
 const TMP = path.join(ROOT, ".tmp");
 
 const VERSION = process.env.VERSION || require("../package.json").version;
+// RUBY_REF defaults to the tag matching VERSION. For dev builds, set
+// RUBY_REF to a branch/SHA explicitly (e.g. "main" or a commit hash).
 const RUBY_REF = process.env.RUBY_REF || `v${VERSION}`;
 const RUBY_REPO =
   process.env.RUBY_REPO || "https://github.com/lutaml/lutaml-model.git";
@@ -28,7 +35,21 @@ function ensureDir(p) { fs.mkdirSync(p, { recursive: true }); }
 function checkoutLutamlModel() {
   rmrf(TMP);
   ensureDir(TMP);
-  run(`git clone --depth 1 --branch ${RUBY_REF} ${RUBY_REPO} ${TMP}`);
+  // --recurse-submodules: lutaml-model vendors opal-oga and
+  // opal-ruby-ll as submodules; both must be present for the Opal
+  // compiler to find the pure-Ruby lexer/driver fallbacks.
+  run(
+    `git clone --depth 1 --recurse-submodules --shallow-submodules ` +
+      `--branch ${RUBY_REF} ${RUBY_REPO} ${TMP}`,
+  );
+
+  // The forks ship grammar sources (.rl/.rll) but gitignore the
+  // generated .rb/.c outputs. Ragel + ruby-ll must regenerate them
+  // before bundle install compiles the C extensions via each fork's
+  // extconf.rb (which requires ext/c/lexer.c to exist).
+  run("gem install ruby-ll --no-document");
+  run("rake vendor:prepare", { cwd: TMP });
+
   run("bundle install", { cwd: TMP });
 }
 
