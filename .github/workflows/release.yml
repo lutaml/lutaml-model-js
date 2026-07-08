@@ -1,7 +1,21 @@
 name: release
 
+# npm Trusted Publishing via GitHub OIDC.
+#
+# Requires Trusted Publisher configured on npmjs.com:
+#   Package → Settings → Publishing access → Add Trusted Publisher
+#   Repository: <org>/<repo>
+#   Workflow filename: release.yml
+#   Environment: npm
+#
+# The package must exist on npm before Trusted Publisher works.
+# For the FIRST publish, run locally:
+#   npm publish --access public
+# Then configure Trusted Publisher on npmjs.com, then this workflow
+# takes over subsequent releases.
+
 permissions:
-  contents: write
+  contents: read
   id-token: write
 
 on:
@@ -9,8 +23,8 @@ on:
     inputs:
       next_version:
         description: |
-          Next release version. Possible values: x.y.z, major, minor, patch (or pre|rc|etc).
-          Also, you can pass 'skip' to skip 'git tag' and do 'npm publish' for the current version.
+          Version to publish (x.y.z). Use "skip" to publish the
+          version currently in package.json without bumping.
         required: true
         default: 'skip'
   repository_dispatch:
@@ -19,13 +33,25 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment: npm
     steps:
       - uses: actions/checkout@v6
+
+      - name: Resolve version
+        id: ver
+        run: |
+          VERSION="${{ github.event.client_payload.version || github.event.inputs.next_version }}"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "skip" ]; then
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing version $VERSION"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -42,20 +68,19 @@ jobs:
       - name: Build
         run: node scripts/build.js
         env:
-          VERSION: ${{ github.event.client_payload.version || github.event.inputs.next_version }}
-          RUBY_REF: ${{ github.event.client_payload.ruby_ref || format('v{0}', github.event.inputs.next_version) }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          RUBY_REF: ${{ github.event.client_payload.ruby_ref || format('v{0}', steps.ver.outputs.version) }}
           OPAL_PREFORK_DISABLE: "1"
 
-      - name: Smoke test (self-contained)
-        run: VARIANT=self-contained node scripts/test.js
+      - name: Smoke test
+        run: node scripts/test.js
 
-      - name: Smoke test (external)
-        run: VARIANT=external node scripts/test.js
+      - name: Set package version
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          if [ "$VERSION" != "$(node -p "require('./package.json').version")" ]; then
+            npm version "$VERSION" --no-git-tag-version
+          fi
 
-      - name: Publish to npm
-        uses: metanorma/ci/.github/workflows/npm-release.yml@main
-        with:
-          next_version: ${{ github.event.inputs.next_version }}
-        secrets:
-          npm-token: ${{ secrets.LUTAML_CI_NPM_PUBLISH_TOKEN }}
-          id-token: ${{ secrets.LUTAML_CI_NPM_PROVENANCE_IDENTITY }}
+      - name: Publish to npm (Trusted Publisher via OIDC)
+        run: npm publish --provenance --access public
