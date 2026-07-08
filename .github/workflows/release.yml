@@ -1,18 +1,7 @@
 name: release
 
-# npm Trusted Publishing via GitHub OIDC.
-#
-# Requires Trusted Publisher configured on npmjs.com:
-#   Package → Settings → Publishing access → Add Trusted Publisher
-#   Repository: <org>/<repo>
-#   Workflow filename: release.yml
-#   Environment: npm
-#
-# The package must exist on npm before Trusted Publisher works.
-# For the FIRST publish, run locally:
-#   npm publish --access public
-# Then configure Trusted Publisher on npmjs.com, then this workflow
-# takes over subsequent releases.
+# npm publish with provenance (SLSA attestation via GitHub OIDC).
+# Requires NPM_TOKEN secret (npm automation token with publish access).
 
 permissions:
   contents: read
@@ -22,9 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       next_version:
-        description: |
-          Version to publish (x.y.z). Use "skip" to publish the
-          version currently in package.json without bumping.
+        description: "Version to publish (x.y.z, major, minor, patch, skip)"
         required: true
         default: 'skip'
   repository_dispatch:
@@ -33,7 +20,6 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    environment: npm
     steps:
       - uses: actions/checkout@v6
 
@@ -45,7 +31,6 @@ jobs:
             VERSION=$(node -p "require('./package.json').version")
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Publishing version $VERSION"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -82,5 +67,7 @@ jobs:
             npm version "$VERSION" --no-git-tag-version
           fi
 
-      - name: Publish to npm (Trusted Publisher via OIDC)
+      - name: Publish to npm with provenance
         run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
