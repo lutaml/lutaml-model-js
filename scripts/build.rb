@@ -31,16 +31,35 @@ ENV["OPAL_PREFORK_DISABLE"] ||= "1"
 #   - rexml/*     : REXML gem source is on the load path; moxml ships
 #                   lib/compat/opal/rexml/* shadows for the bits Opal
 #                   can't follow natively
-#   - weakref     : runtime_compatibility.rb provides an Opal stub
 #
 # What we still stub:
 #   - nokogiri / ox : C extensions, no Opal equivalent
+#   - monitor / thread / set : Ruby stdlib that Opal's stdlib doesn't
+#                              ship; runtime_compatibility.rb already
+#                              stubs Mutex/ConditionVariable/Thread
+#                              at the call sites that need them
+#   - weakref       : runtime_compatibility.rb provides the runtime
+#                     WeakRef class; Opal still follows the file-level
+#                     `require "weakref"` at compile time even though
+#                     the `unless Lutaml::Model.opal?` guard skips it
+#                     at runtime
+#   - jruby / liboga / libll : referenced inside platform conditionals
+#                              (RUBY_PLATFORM == 'java' etc.) that Opal
+#                              still follows at compile time even though
+#                              they won't execute at runtime
 #   - rdf/linkeddata stack : large, only needed for jsonld/yamlld/turtle
 #                            formats which are optional in lutaml-model
 #   - fuzzy_match   : external gem not in the Opal bundle
 UPSTREAM_STUBS = %w[
   nokogiri
   ox
+  monitor
+  thread
+  set
+  weakref
+  jruby
+  liboga
+  libll
   rdf
   rdf/turtle
   rdf-turtle
