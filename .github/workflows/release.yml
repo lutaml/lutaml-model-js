@@ -1,7 +1,14 @@
 name: release
 
-# npm publish with provenance (SLSA attestation via GitHub OIDC).
-# Requires NPM_TOKEN secret (npm automation token with publish access).
+# npm Trusted Publishing — passwordless via GitHub OIDC.
+#
+# Prerequisites (one-time, on npmjs.com):
+#   Package → Settings → Publishing access → Add Trusted Publisher
+#   Repository: <org>/<repo>
+#   Workflow filename: release.yml
+#   Environment: (leave blank unless you set one in the workflow below)
+#
+# No NPM_TOKEN secret needed. npm CLI 10.9.1+ handles OIDC automatically.
 
 permissions:
   contents: read
@@ -36,7 +43,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          registry-url: "https://registry.npmjs.org"
+          # NO registry-url — prevents setup-node from writing
+          # _authToken to .npmrc, which would shadow OIDC auth.
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -67,7 +75,5 @@ jobs:
             npm version "$VERSION" --no-git-tag-version
           fi
 
-      - name: Publish to npm with provenance
+      - name: Publish to npm (Trusted Publisher — passwordless OIDC)
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
