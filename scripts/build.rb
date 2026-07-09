@@ -43,6 +43,21 @@ ENV["OPAL_PREFORK_DISABLE"] ||= "1"
 #                     `require "weakref"` at compile time even though
 #                     the `unless Lutaml::Model.opal?` guard skips it
 #                     at runtime
+#   - stringio      : moxml's rexml_compat.rb defines a bare
+#                     `class StringIO` (no superclass) for Opal;
+#                     Opal's stdlib stringio.rb uses `< ::IO`, which
+#                     clashes when both are loaded. Stub the stdlib
+#                     version so moxml's takes precedence.
+#   - oga/xml/sax_parser, oga/html/sax_parser, oga/xml/pull_parser:
+#                     the opal-oga fork's lib/oga.rb requires these
+#                     unconditionally, but they call `Kernel#eval` at
+#                     FILE-LOAD time to define handler methods
+#                     dynamically. Opal's eval needs `opal-parser`
+#                     (an extra ~500 KB and slow at runtime). Stub them
+#                     out — lutaml-model uses Oga's basic
+#                     XML::Parser/document API, not SAX or pull-parser.
+#                     oga/xpath/context is NOT stubbed: its eval is
+#                     inside a method body, only fired on call.
 #   - jruby / liboga / libll : referenced inside platform conditionals
 #                              (RUBY_PLATFORM == 'java' etc.) that Opal
 #                              still follows at compile time even though
@@ -57,6 +72,10 @@ UPSTREAM_STUBS = %w[
   thread
   set
   weakref
+  stringio
+  oga/xml/sax_parser
+  oga/html/sax_parser
+  oga/xml/pull_parser
   jruby
   liboga
   libll
@@ -74,7 +93,7 @@ UPSTREAM_STUBS = %w[
   fuzzy_match
 ].freeze
 
-ENTRY = "lutaml/model"
+ENTRY = "js_bundle_entry"
 
 # Add every load-path element the Opal compiler needs to follow
 # `require` chains out of lib/lutaml/model.rb and lib/lutaml/xml.rb.
@@ -85,7 +104,18 @@ def append_compile_load_paths!(builder, ruby_dir)
 
   # lutaml-model's lib/compat/opal/ ships lutaml_model_boot.rb and
   # the moxml/yaml/rexml compat shims that boot the Opal runtime.
+  # js_bundle_entry (the ENTRY above) also lives here.
   builder.append_paths(File.join(ruby_dir, "lib", "compat", "opal"))
+
+  # Opal's own stdlib + corelib. Several runtime requires target files
+  # under these paths (e.g. moxml's compat/opal/rexml_compat.rb does
+  # `require "corelib/array/pack"`; nodejs/yaml pulls in nodejs/).
+  # Opal::Builder does not put them on its compile load path by default.
+  opal_gem_dir = Gem::Specification.find_by_name("opal")&.gem_dir
+  if opal_gem_dir
+    builder.append_paths(File.join(opal_gem_dir, "opal"))
+    builder.append_paths(File.join(opal_gem_dir, "stdlib"))
+  end
 
   # moxml — required by lutaml/xml.rb. moxml's lib/compat/opal/ ships
   # the rexml/* shadow files that override parts of REXML's source so
