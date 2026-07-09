@@ -41,6 +41,7 @@
     "url": "https://github.com/lutaml/lutaml-model-js/issues"
   },
   "devDependencies": {
+    "@lutaml/opal-runtime": "^1.0.1",
     "esbuild": "^0.23.0",
     "typescript": "^5.5.0"
   },
