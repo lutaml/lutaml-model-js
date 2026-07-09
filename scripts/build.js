@@ -38,10 +38,25 @@ function checkoutLutamlModel() {
   // --recurse-submodules: lutaml-model vendors opal-oga and
   // opal-ruby-ll as submodules; both must be present for the Opal
   // compiler to find the pure-Ruby lexer/driver fallbacks.
-  run(
-    `git clone --depth 1 --recurse-submodules --shallow-submodules ` +
-      `--branch ${RUBY_REF} ${RUBY_REPO} ${TMP}`,
-  );
+  //
+  // git clone --branch only accepts branch/tag names, not SHAs. For
+  // SHA refs (e.g. js-sync-main dev builds that pin to a commit),
+  // do a shallow fetch of the exact SHA instead.
+  const isSha = /^[0-9a-f]{40}$/i.test(RUBY_REF);
+  if (isSha) {
+    run(`git init ${TMP}`);
+    run(`git -C ${TMP} remote add origin ${RUBY_REPO}`);
+    run(`git -C ${TMP} fetch --depth 1 origin ${RUBY_REF}`);
+    run(`git -C ${TMP} checkout FETCH_HEAD`);
+    run(
+      `git -C ${TMP} submodule update --init --recursive --depth 1`,
+    );
+  } else {
+    run(
+      `git clone --depth 1 --recurse-submodules --shallow-submodules ` +
+        `--branch ${RUBY_REF} ${RUBY_REPO} ${TMP}`,
+    );
+  }
 
   // The forks ship grammar sources (.rl/.rll) but gitignore the
   // generated .rb/.c outputs. Ragel + ruby-ll must regenerate them
