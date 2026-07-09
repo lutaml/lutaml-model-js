@@ -126,10 +126,11 @@ jobs:
           fi
 
       - name: Install sigstore (provenance signer)
-        # npm publish --provenance requires the `sigstore` module which
-        # is not bundled with the global npm CLI installed by
-        # actions/setup-node. Install it as a dev dep without saving.
-        run: npm install --no-save sigstore
+        # `npm publish --provenance` requires the `sigstore` module.
+        # The global npm CLI installed by `npm install -g npm@latest`
+        # doesn't include it. Install it globally so npm's libnpmpublish
+        # can find it via the global node_modules tree.
+        run: npm install -g sigstore
 
       - name: Publish to npm (Trusted Publisher — passwordless OIDC)
         # Dev builds (js-sync-main) and manual workflow_dispatch both
