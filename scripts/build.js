@@ -85,6 +85,11 @@ function buildRuby() {
 
 rmrf(DIST);
 ensureDir(DIST);
+// @lutaml/opal-runtime is declared as an optional peerDependency so
+// consumers can omit it for the no-opal flavor. The build itself
+// needs it (the self-contained flavor embeds the runtime); install
+// explicitly with --no-save so package.json isn't mutated.
+run("npm install @lutaml/opal-runtime --no-save");
 checkoutLutamlModel();
 buildRuby();
 rmrf(TMP);
