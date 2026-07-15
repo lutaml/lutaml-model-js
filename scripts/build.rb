@@ -72,7 +72,6 @@ UPSTREAM_STUBS = %w[
   thread
   set
   weakref
-  stringio
   oga/xml/sax_parser
   oga/html/sax_parser
   oga/xml/pull_parser
@@ -157,11 +156,27 @@ def build_app_code(ruby_dir, dist_dir)
   builder.compiler_options = { source_map: false }
 
   output = builder.build(ENTRY).to_s
-  path = File.join(dist_dir, "lutaml-model-no-opal.js")
-  FileUtils.mkdir_p(dist_dir)
-  File.write(path, output)
-  warn "wrote #{path} (#{output.bytesize / 1024} KiB)"
   output
+end
+
+# Compile scripts/smoke_test.rb as a separate Opal module so test.js
+# can run a real XML round-trip via Opal.require("smoke_test") after
+# the structural check passes.
+#
+# Opal.compile wraps top-level output in `Opal.queue(function(Opal){...})`
+# which defers execution — useless for Opal.require which calls the
+# module function synchronously and expects the body to run inline.
+# Strip the queue wrapper so the body executes directly inside the
+# `Opal.modules["smoke_test"] = function(Opal) { ... }` registration.
+def compile_smoke_test(_ruby_dir, scripts_dir)
+  smoke_src = File.join(scripts_dir, "smoke_test.rb")
+  return "" unless File.exist?(smoke_src)
+
+  compiled = Opal.compile(File.read(smoke_src), file: "smoke_test.rb")
+  body = compiled
+         .sub(/\AOpal\.queue\(function\(Opal\)\s*\{/, "")
+         .sub(/\}\);\s*\z/, "")
+  %(\nOpal.modules["smoke_test"] = function(Opal) {\n#{body}\n};\n)
 end
 
 def read_runtime(runtime_pkg_root)
@@ -213,6 +228,15 @@ version = ENV.fetch("VERSION")
 FileUtils.mkdir_p(dist_dir)
 
 app_code = build_app_code(ruby_dir, dist_dir)
+smoke_code = compile_smoke_test(ruby_dir, scripts_dir)
+combined = smoke_code.empty? ? app_code : "#{app_code}\n#{smoke_code}"
+
+# External flavor (no embedded runtime): just the combined app code.
+no_opal_path = File.join(dist_dir, "lutaml-model-no-opal.js")
+FileUtils.mkdir_p(dist_dir)
+File.write(no_opal_path, combined)
+warn "wrote #{no_opal_path} (#{combined.bytesize / 1024} KiB)"
+
 runtime = read_runtime(runtime_root)
-build_self_contained(app_code, runtime, version, dist_dir)
+build_self_contained(combined, runtime, version, dist_dir)
 write_types(dist_dir)
