@@ -223,6 +223,7 @@ end
 ruby_dir = ENV.fetch("RUBY_DIR")
 dist_dir = ENV.fetch("DIST_DIR")
 runtime_root = ENV.fetch("RUNTIME_PKG_ROOT")
+scripts_dir = File.expand_path("scripts", runtime_root)
 version = ENV.fetch("VERSION")
 
 FileUtils.mkdir_p(dist_dir)
