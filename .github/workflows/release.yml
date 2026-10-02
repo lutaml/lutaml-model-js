@@ -67,6 +67,7 @@ jobs:
           # so it never names the ref.
           RUBY_REF="${PAYLOAD_RUBY_REF:-$INPUT_RUBY_REF}"
           if [ -n "$RUBY_REF" ]; then
+            # Same ref contract as scripts/build.rb: alphanumeric first, then up to 199 of [A-Za-z0-9._/-], no "..".
             [[ "$RUBY_REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$ ]] && [[ "$RUBY_REF" != *..* ]] \
               || fail "invalid ruby_ref" "$RUBY_REF"
           fi
