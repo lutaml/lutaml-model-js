@@ -43,11 +43,6 @@ ENV["OPAL_PREFORK_DISABLE"] ||= "1"
 #                     `require "weakref"` at compile time even though
 #                     the `unless Lutaml::Model.opal?` guard skips it
 #                     at runtime
-#   - stringio      : moxml's rexml_compat.rb defines a bare
-#                     `class StringIO` (no superclass) for Opal;
-#                     Opal's stdlib stringio.rb uses `< ::IO`, which
-#                     clashes when both are loaded. Stub the stdlib
-#                     version so moxml's takes precedence.
 #   - oga/xml/sax_parser, oga/html/sax_parser, oga/xml/pull_parser:
 #                     the opal-oga fork's lib/oga.rb requires these
 #                     unconditionally, but they call `Kernel#eval` at
@@ -65,6 +60,11 @@ ENV["OPAL_PREFORK_DISABLE"] ||= "1"
 #   - rdf/linkeddata stack : large, only needed for jsonld/yamlld/turtle
 #                            formats which are optional in lutaml-model
 #   - fuzzy_match   : external gem not in the Opal bundle
+#   - leptris, leptris/xml/descriptor, liquid,
+#     openssl       : required by lutaml-model code paths outside the
+#                     XML/model surface this bundle ships (templating,
+#                     descriptors, digests); Opal still follows the
+#                     requires at compile time
 UPSTREAM_STUBS = %w[
   nokogiri
   ox
@@ -90,7 +90,31 @@ UPSTREAM_STUBS = %w[
   rdf/vocab
   spira
   fuzzy_match
+  leptris
+  liquid
+  leptris/xml/descriptor
+  openssl
 ].freeze
+
+PATCH_DIR = File.expand_path("patches", __dir__)
+
+# moxml fixes not yet in a moxml release (see README). The installed gem
+# is never edited: each patched file is copied into an overlay directory
+# in the build checkout, patched there, and the overlay goes first on
+# Opal's load path so it shadows the gem's copy.
+def moxml_overlay_dir(ruby_dir)
+  moxml_gem_dir = Gem::Specification.find_by_name("moxml").gem_dir
+  overlay = File.join(ruby_dir, ".opal-overlay")
+  Dir[File.join(PATCH_DIR, "moxml", "*.patch")].sort.each do |patch|
+    rel = File.read(patch)[%r{^\+\+\+ b/lib/(\S+)}, 1] or abort "no target in #{patch}"
+    dest = File.join(overlay, rel)
+    FileUtils.mkdir_p(File.dirname(dest))
+    FileUtils.cp(File.join(moxml_gem_dir, "lib", rel), dest)
+    ok = system("patch", "--forward", "--no-backup-if-mismatch", dest, "-i", patch)
+    abort "moxml patch failed: #{patch} against moxml #{Gem.loaded_specs["moxml"]&.version}" unless ok
+  end
+  overlay
+end
 
 ENTRY = "js_bundle_entry"
 
@@ -98,6 +122,9 @@ ENTRY = "js_bundle_entry"
 # `require` chains out of lib/lutaml/model.rb and lib/lutaml/xml.rb.
 # Each path is idempotent — Opal::Builder#append_paths dedupes.
 def append_compile_load_paths!(builder, ruby_dir)
+  # Patched copies of gem files (see moxml_overlay_dir) win over the gems.
+  builder.append_paths(moxml_overlay_dir(ruby_dir))
+
   # lutaml-model itself
   builder.append_paths(File.join(ruby_dir, "lib"))
 
@@ -191,9 +218,8 @@ def read_runtime(runtime_pkg_root)
     warn "read runtime from #{p} (#{runtime.bytesize / 1024} KiB)"
     return runtime
   end
-  warn "Could not locate @lutaml/opal-runtime/dist/runtime.js. " \
-       "Self-contained flavor will be empty."
-  ""
+  abort "Could not locate @lutaml/opal-runtime/dist/runtime.js under " \
+        "#{runtime_pkg_root}/node_modules; run npm install first"
 end
 
 def build_self_contained(app_code, runtime, version, dist_dir)

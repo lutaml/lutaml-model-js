@@ -1,0 +1,20 @@
+Skip TracePoint under Opal, which has none; symbol imports resolve lazily.
+Temporary: from lutaml/lutaml-model branch fix/opal-runtime-compat (77cefafb);
+remove once that branch is released and LUTAML_MODEL_REF moves past it.
+
+diff --git a/lib/lutaml/model/serialize/model_import.rb b/lib/lutaml/model/serialize/model_import.rb
+index 8c4e809f..7660518b 100644
+--- a/lib/lutaml/model/serialize/model_import.rb
++++ b/lib/lutaml/model/serialize/model_import.rb
+@@ -243,6 +243,11 @@ module Lutaml
+         # Uses TracePoint to detect when a class definition is complete,
+         # allowing deferred import resolution.
+         def setup_trace_point
++          # Opal has no TracePoint. Symbol imports still resolve lazily
++          # on first use (ensure_imports!), so there the class is marked
++          # finalized at once instead of at the end of its body.
++          return @finalized = true if Lutaml::Model.opal?
++
+           @trace ||= TracePoint.new(:end) do |_tp|
+             if include?(Lutaml::Model::Serialize)
+               @finalized = true

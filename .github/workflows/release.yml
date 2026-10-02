@@ -22,7 +22,7 @@ on:
         required: true
         default: 'skip'
       ruby_ref:
-        description: Override the Ruby ref to build from (branch/tag/SHA). Defaults to v<next_version>.
+        description: Override the Ruby ref to build from (branch/tag/SHA). Defaults to LUTAML_MODEL_REF in scripts/build.js.
         required: false
   # Stable release: fired by lutaml-model's release chain after the gem
   # passes its tests and is published to RubyGems.
@@ -50,15 +50,13 @@ jobs:
             VERSION=$(node -p "require('./package.json').version")
           fi
 
-          # RUBY_REF
+          # RUBY_REF. Empty: scripts/build.js uses its pinned
+          # LUTAML_MODEL_REF. This package's version is not the gem's,
+          # so it never names the ref.
           if [ -n "${{ github.event.client_payload.ruby_ref }}" ]; then
             RUBY_REF="${{ github.event.client_payload.ruby_ref }}"
-          elif [ -n "${{ github.event.inputs.ruby_ref }}" ]; then
-            RUBY_REF="${{ github.event.inputs.ruby_ref }}"
-          elif [ "$VERSION" != "skip" ] && [ -n "$VERSION" ]; then
-            RUBY_REF="v$VERSION"
           else
-            RUBY_REF="main"
+            RUBY_REF="${{ github.event.inputs.ruby_ref }}"
           fi
 
           # Dev builds (js-sync-main) publish under the `next` dist-tag

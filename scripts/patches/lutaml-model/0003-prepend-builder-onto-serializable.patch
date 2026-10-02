@@ -1,0 +1,19 @@
+Prepend Serialize::Builder onto Serializable directly under Opal.
+Temporary: from lutaml/lutaml-model branch fix/opal-runtime-compat (77cefafb);
+remove once that branch is released and LUTAML_MODEL_REF moves past it.
+
+diff --git a/lib/lutaml/model.rb b/lib/lutaml/model.rb
+index 03bee9e8..b5d61de1 100644
+--- a/lib/lutaml/model.rb
++++ b/lib/lutaml/model.rb
+@@ -294,3 +294,10 @@ require "#{__dir__}/xml/format"
+ # Builder must be prepended AFTER XML so its initialize runs first
+ # (Builder -> XML InstanceMethods -> Serialize)
+ Lutaml::Model::Serialize.prepend(Lutaml::Model::Serialize::Builder)
++
++# Opal does not propagate a module prepended into an already-included
++# module to classes that included it earlier (see lib/lutaml/xml/format.rb).
++# Serializable included Serialize at boot, so Builder goes onto it directly.
++if Lutaml::Model.opal?
++  Lutaml::Model::Serializable.prepend(Lutaml::Model::Serialize::Builder)
++end
