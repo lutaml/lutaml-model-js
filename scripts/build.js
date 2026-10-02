@@ -88,6 +88,8 @@ function checkoutLutamlModel() {
 // there stops the build rather than shipping without it.
 function applyGemPatches() {
   const dir = path.join(ROOT, "scripts", "patches", "lutaml-model");
+  // Git drops the directory once the last patch is deleted.
+  if (!fs.existsSync(dir)) return;
   for (const f of fs.readdirSync(dir).filter((n) => n.endsWith(".patch")).sort()) {
     const patch = path.join(dir, f);
     const opts = { cwd: TMP };
