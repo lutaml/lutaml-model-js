@@ -6,7 +6,7 @@
 // the Opal build via scripts/build.rb.
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
+const { spawnSync } = require("child_process");
 
 const ROOT = process.cwd();
 const DIST = path.join(ROOT, "dist");
@@ -21,12 +21,14 @@ const RUBY_REF = process.env.RUBY_REF || LUTAML_MODEL_REF;
 const RUBY_REPO =
   process.env.RUBY_REPO || "https://github.com/lutaml/lutaml-model.git";
 
-function run(cmd, opts = {}) {
-  console.error(`$ ${cmd}`);
-  try {
-    return execSync(cmd, { stdio: ["ignore", "inherit", "inherit"], ...opts });
-  } catch (err) {
-    console.error(`command failed: ${cmd}`);
+// Runs a command with an argument array and no shell, so RUBY_REF,
+// RUBY_REPO and paths are passed as single arguments, never parsed.
+function run(cmd, args, opts = {}) {
+  const shown = [cmd, ...args].join(" ");
+  console.error(`$ ${shown}`);
+  const res = spawnSync(cmd, args, { stdio: ["ignore", "inherit", "inherit"], ...opts });
+  if (res.error || res.status !== 0) {
+    console.error(`command failed: ${shown}`);
     process.exit(1);
   }
 }
@@ -46,28 +48,26 @@ function checkoutLutamlModel() {
   // do a shallow fetch of the exact SHA instead.
   const isSha = /^[0-9a-f]{40}$/i.test(RUBY_REF);
   if (isSha) {
-    run(`git init ${TMP}`);
-    run(`git -C ${TMP} remote add origin ${RUBY_REPO}`);
-    run(`git -C ${TMP} fetch --depth 1 origin ${RUBY_REF}`);
-    run(`git -C ${TMP} checkout FETCH_HEAD`);
-    run(
-      `git -C ${TMP} submodule update --init --recursive --depth 1`,
-    );
+    run("git", ["init", TMP]);
+    run("git", ["-C", TMP, "remote", "add", "origin", "--", RUBY_REPO]);
+    run("git", ["-C", TMP, "fetch", "--depth", "1", "origin", RUBY_REF]);
+    run("git", ["-C", TMP, "checkout", "FETCH_HEAD"]);
+    run("git", ["-C", TMP, "submodule", "update", "--init", "--recursive", "--depth", "1"]);
   } else {
-    run(
-      `git clone --depth 1 --recurse-submodules --shallow-submodules ` +
-        `--branch ${RUBY_REF} ${RUBY_REPO} ${TMP}`,
-    );
+    run("git", [
+      "clone", "--depth", "1", "--recurse-submodules", "--shallow-submodules",
+      `--branch=${RUBY_REF}`, "--", RUBY_REPO, TMP,
+    ]);
   }
 
   // The forks ship grammar sources (.rl/.rll) but gitignore the
   // generated .rb/.c outputs. Ragel + ruby-ll must regenerate them
   // before bundle install compiles the C extensions via each fork's
   // extconf.rb (which requires ext/c/lexer.c to exist).
-  run("gem install ruby-ll --no-document");
-  run("rake vendor:prepare", { cwd: TMP });
+  run("gem", ["install", "ruby-ll", "--no-document"]);
+  run("rake", ["vendor:prepare"], { cwd: TMP });
 
-  run("bundle install", { cwd: TMP });
+  run("bundle", ["install"], { cwd: TMP });
 }
 
 function buildRuby() {
@@ -79,7 +79,7 @@ function buildRuby() {
     RUBY_REF,
     OPAL_PREFORK_DISABLE: "1",
   };
-  run(`bundle exec ruby ${path.join(ROOT, "scripts", "build.rb")}`, {
+  run("bundle", ["exec", "ruby", path.join(ROOT, "scripts", "build.rb")], {
     cwd: TMP,
     env,
   });
