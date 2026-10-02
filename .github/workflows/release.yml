@@ -39,32 +39,43 @@ jobs:
 
       - name: Resolve build inputs
         id: inputs
+        # Payload and input values arrive through env and are used only
+        # as quoted "$VARS", never interpolated into the script; each is
+        # checked against a strict pattern before it is used.
+        env:
+          EVENT_ACTION: ${{ github.event.action }}
+          PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
+          PAYLOAD_RUBY_REF: ${{ github.event.client_payload.ruby_ref }}
+          PAYLOAD_SHA: ${{ github.event.client_payload.sha }}
+          INPUT_VERSION: ${{ github.event.inputs.next_version }}
+          INPUT_RUBY_REF: ${{ github.event.inputs.ruby_ref }}
         run: |
+          fail() { echo "::error::$1"; exit 1; }
+
           # VERSION
-          if [ -n "${{ github.event.client_payload.version }}" ]; then
-            VERSION="${{ github.event.client_payload.version }}"
-          else
-            VERSION="${{ github.event.inputs.next_version }}"
-          fi
+          VERSION="${PAYLOAD_VERSION:-$INPUT_VERSION}"
           if [ -z "$VERSION" ] || [ "$VERSION" = "skip" ]; then
             VERSION=$(node -p "require('./package.json').version")
           fi
+          [[ "$VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?|major|minor|patch)$ ]] \
+            || fail "invalid version: $VERSION"
 
           # RUBY_REF. Empty: scripts/build.js uses its pinned
           # LUTAML_MODEL_REF. This package's version is not the gem's,
           # so it never names the ref.
-          if [ -n "${{ github.event.client_payload.ruby_ref }}" ]; then
-            RUBY_REF="${{ github.event.client_payload.ruby_ref }}"
-          else
-            RUBY_REF="${{ github.event.inputs.ruby_ref }}"
+          RUBY_REF="${PAYLOAD_RUBY_REF:-$INPUT_RUBY_REF}"
+          if [ -n "$RUBY_REF" ]; then
+            [[ "$RUBY_REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$ ]] && [[ "$RUBY_REF" != *..* ]] \
+              || fail "invalid ruby_ref: $RUBY_REF"
           fi
 
           # Dev builds (js-sync-main) publish under the `next` dist-tag
           # and use a SHA-stamped version so they don't collide with
           # stable releases.
-          if [ "${{ github.event.action }}" = "js-sync-main" ]; then
-            VERSION="0.0.0-dev.${{ github.event.client_payload.sha }}"
-            RUBY_REF="${{ github.event.client_payload.sha }}"
+          if [ "$EVENT_ACTION" = "js-sync-main" ]; then
+            [[ "$PAYLOAD_SHA" =~ ^[0-9a-f]{40}$ ]] || fail "invalid sha: $PAYLOAD_SHA"
+            VERSION="0.0.0-dev.$PAYLOAD_SHA"
+            RUBY_REF="$PAYLOAD_SHA"
             DIST_TAG="next"
           else
             DIST_TAG="latest"
@@ -117,8 +128,9 @@ jobs:
         run: node scripts/test.js
 
       - name: Set package version
+        env:
+          VERSION: ${{ steps.inputs.outputs.version }}
         run: |
-          VERSION="${{ steps.inputs.outputs.version }}"
           if [ "$VERSION" != "$(node -p "require('./package.json').version")" ]; then
             npm version "$VERSION" --no-git-tag-version
           fi
@@ -134,8 +146,10 @@ jobs:
         # Dev builds (js-sync-main) and manual workflow_dispatch both
         # publish. pr-check.yml (js-pr-check event) does NOT publish —
         # it has its own workflow.
+        env:
+          DIST_TAG: ${{ steps.inputs.outputs.dist_tag }}
         run: |
-          if [ "${{ steps.inputs.outputs.dist_tag }}" = "next" ]; then
+          if [ "$DIST_TAG" = "next" ]; then
             npm publish --provenance --access public --tag next
           else
             npm publish --provenance --access public
