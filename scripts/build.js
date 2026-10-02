@@ -1,6 +1,6 @@
 // Build script for @lutaml/lutaml-model.
 //
-// Clones lutaml-model at RUBY_REF (default: the tag matching VERSION),
+// Clones lutaml-model at RUBY_REF (default: LUTAML_MODEL_REF below),
 // checks out its submodules (the opal-oga and opal-ruby-ll forks),
 // regenerates the ragel/ruby-ll outputs the forks gitignore, then runs
 // the Opal build via scripts/build.rb.
@@ -12,10 +12,12 @@ const ROOT = process.cwd();
 const DIST = path.join(ROOT, "dist");
 const TMP = path.join(ROOT, ".tmp");
 
-const VERSION = process.env.VERSION || require("../package.json").version;
-// RUBY_REF defaults to the tag matching VERSION. For dev builds, set
-// RUBY_REF to a branch/SHA explicitly (e.g. "main" or a commit hash).
-const RUBY_REF = process.env.RUBY_REF || `v${VERSION}`;
+// The lutaml-model release this package is built from. This package's
+// own version is not the gem's, so it cannot name the ref (`v0.1.0` is
+// an unrelated old gem tag). For dev builds, set RUBY_REF to a
+// branch/tag/SHA explicitly.
+const LUTAML_MODEL_REF = "v0.8.88";
+const RUBY_REF = process.env.RUBY_REF || LUTAML_MODEL_REF;
 const RUBY_REPO =
   process.env.RUBY_REPO || "https://github.com/lutaml/lutaml-model.git";
 
@@ -74,7 +76,7 @@ function buildRuby() {
     RUBY_DIR: TMP,
     DIST_DIR: DIST,
     RUNTIME_PKG_ROOT: ROOT,
-    VERSION,
+    RUBY_REF,
     OPAL_PREFORK_DISABLE: "1",
   };
   run(`bundle exec ruby ${path.join(ROOT, "scripts", "build.rb")}`, {

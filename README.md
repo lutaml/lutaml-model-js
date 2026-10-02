@@ -40,6 +40,16 @@ under Windows or when running inside Opal itself).
 Opal 2 master adds a \`Threaded\` scheduler as well. Once Opal 2
 ships, the env var becomes unnecessary.
 
+## Build: pinned source
+
+`scripts/build.js` builds from the lutaml-model release pinned in
+`LUTAML_MODEL_REF`; set `RUBY_REF` to build another tag, branch or SHA.
+This package's version is not the gem's, so it never names the ref.
+
+The Opal build of the pinned release does not boot yet: it needs the
+Opal fixes in lutaml/lutaml-model#914 and lutaml/moxml#320. This
+package will be updated once those are released.
+
 ## Sync model
 
 This package is rebuilt automatically whenever the Ruby source changes:
