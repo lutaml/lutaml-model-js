@@ -2,9 +2,8 @@
 //
 // Clones lutaml-model at RUBY_REF (default: LUTAML_MODEL_REF below),
 // checks out its submodules (the opal-oga and opal-ruby-ll forks),
-// regenerates the ragel/ruby-ll outputs the forks gitignore, applies the
-// Opal patches in scripts/patches/lutaml-model/, then runs the Opal build
-// via scripts/build.rb.
+// regenerates the ragel/ruby-ll outputs the forks gitignore, then runs
+// the Opal build via scripts/build.rb.
 const fs = require("fs");
 const path = require("path");
 const { execSync } = require("child_process");
@@ -15,9 +14,8 @@ const TMP = path.join(ROOT, ".tmp");
 
 // The lutaml-model release this package is built from. This package's
 // own version is not the gem's, so it cannot name the ref (`v0.1.0` is
-// an unrelated old gem tag). The patches in scripts/patches/ are made
-// against this ref: move them together. For dev builds, set RUBY_REF to
-// a branch/tag/SHA explicitly.
+// an unrelated old gem tag). For dev builds, set RUBY_REF to a
+// branch/tag/SHA explicitly.
 const LUTAML_MODEL_REF = "v0.8.88";
 const RUBY_REF = process.env.RUBY_REF || LUTAML_MODEL_REF;
 const RUBY_REPO =
@@ -30,16 +28,6 @@ function run(cmd, opts = {}) {
   } catch (err) {
     console.error(`command failed: ${cmd}`);
     process.exit(1);
-  }
-}
-
-// Same, but returns whether the command succeeded instead of exiting.
-function succeeds(cmd, opts = {}) {
-  try {
-    execSync(cmd, { stdio: "ignore", ...opts });
-    return true;
-  } catch (err) {
-    return false;
   }
 }
 
@@ -82,26 +70,6 @@ function checkoutLutamlModel() {
   run("bundle install", { cwd: TMP });
 }
 
-// Opal fixes not yet in a lutaml-model release (see README). A patch
-// whose change the checkout already has (a ref that includes the
-// upstream fix) is skipped; one that neither applies nor is already
-// there stops the build rather than shipping without it.
-function applyGemPatches() {
-  const dir = path.join(ROOT, "scripts", "patches", "lutaml-model");
-  // Git drops the directory once the last patch is deleted.
-  if (!fs.existsSync(dir)) return;
-  for (const f of fs.readdirSync(dir).filter((n) => n.endsWith(".patch")).sort()) {
-    const patch = path.join(dir, f);
-    const opts = { cwd: TMP };
-    if (!succeeds(`patch -p1 --forward --dry-run -i ${patch}`, opts) &&
-        succeeds(`patch -p1 --reverse --dry-run -i ${patch}`, opts)) {
-      console.error(`already applied, skipping: ${f}`);
-      continue;
-    }
-    run(`patch -p1 --forward --no-backup-if-mismatch -i ${patch}`, opts);
-  }
-}
-
 function buildRuby() {
   const env = {
     ...process.env,
@@ -120,7 +88,6 @@ function buildRuby() {
 rmrf(DIST);
 ensureDir(DIST);
 checkoutLutamlModel();
-applyGemPatches();
 buildRuby();
 rmrf(TMP);
 console.error("build complete");

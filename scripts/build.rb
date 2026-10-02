@@ -96,35 +96,12 @@ UPSTREAM_STUBS = %w[
   openssl
 ].freeze
 
-PATCH_DIR = File.expand_path("patches", __dir__)
-
-# moxml fixes not yet in a moxml release (see README). The installed gem
-# is never edited: each patched file is copied into an overlay directory
-# in the build checkout, patched there, and the overlay goes first on
-# Opal's load path so it shadows the gem's copy.
-def moxml_overlay_dir(ruby_dir)
-  moxml_gem_dir = Gem::Specification.find_by_name("moxml").gem_dir
-  overlay = File.join(ruby_dir, ".opal-overlay")
-  Dir[File.join(PATCH_DIR, "moxml", "*.patch")].sort.each do |patch|
-    rel = File.read(patch)[%r{^\+\+\+ b/lib/(\S+)}, 1] or abort "no target in #{patch}"
-    dest = File.join(overlay, rel)
-    FileUtils.mkdir_p(File.dirname(dest))
-    FileUtils.cp(File.join(moxml_gem_dir, "lib", rel), dest)
-    ok = system("patch", "--forward", "--no-backup-if-mismatch", dest, "-i", patch)
-    abort "moxml patch failed: #{patch} against moxml #{Gem.loaded_specs["moxml"]&.version}" unless ok
-  end
-  overlay
-end
-
 ENTRY = "js_bundle_entry"
 
 # Add every load-path element the Opal compiler needs to follow
 # `require` chains out of lib/lutaml/model.rb and lib/lutaml/xml.rb.
 # Each path is idempotent — Opal::Builder#append_paths dedupes.
 def append_compile_load_paths!(builder, ruby_dir)
-  # Patched copies of gem files (see moxml_overlay_dir) win over the gems.
-  builder.append_paths(moxml_overlay_dir(ruby_dir))
-
   # lutaml-model itself
   builder.append_paths(File.join(ruby_dir, "lib"))
 
