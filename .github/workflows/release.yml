@@ -57,7 +57,7 @@ jobs:
           if [ -z "$VERSION" ] || [ "$VERSION" = "skip" ]; then
             VERSION=$(node -p "require('./package.json').version")
           fi
-          [[ "$VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?|major|minor|patch)$ ]] \
+          [[ "$VERSION" =~ ^((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?|major|minor|patch)$ ]] \
             || fail "invalid version: $VERSION"
 
           # RUBY_REF. Empty: scripts/build.js uses its pinned
