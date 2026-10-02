@@ -251,6 +251,11 @@ dist_dir = ENV.fetch("DIST_DIR")
 runtime_root = ENV.fetch("RUNTIME_PKG_ROOT")
 scripts_dir = File.expand_path("scripts", runtime_root)
 ruby_ref = ENV.fetch("RUBY_REF")
+# RUBY_REF goes into the bundle header comment, so only this ref set is accepted:
+# alphanumeric first, then up to 199 of [A-Za-z0-9._/-], no "..".
+unless ruby_ref.match?(%r{\A[A-Za-z0-9][A-Za-z0-9._/-]{0,199}\z}) && !ruby_ref.include?("..")
+  abort "invalid RUBY_REF: #{ruby_ref.inspect}"
+end
 
 FileUtils.mkdir_p(dist_dir)
 

@@ -13,7 +13,6 @@ const ROOT = process.cwd();
 const DIST = path.join(ROOT, "dist");
 const TMP = path.join(ROOT, ".tmp");
 
-const VERSION = process.env.VERSION || require("../package.json").version;
 // The lutaml-model release this package is built from. This package's
 // own version is not the gem's, so it cannot name the ref (`v0.1.0` is
 // an unrelated old gem tag). The patches in scripts/patches/ are made
@@ -107,7 +106,6 @@ function buildRuby() {
     RUBY_DIR: TMP,
     DIST_DIR: DIST,
     RUNTIME_PKG_ROOT: ROOT,
-    VERSION,
     RUBY_REF,
     OPAL_PREFORK_DISABLE: "1",
   };
