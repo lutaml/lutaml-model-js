@@ -222,10 +222,10 @@ def read_runtime(runtime_pkg_root)
         "#{runtime_pkg_root}/node_modules; run npm install first"
 end
 
-def build_self_contained(app_code, runtime, version, dist_dir)
+def build_self_contained(app_code, runtime, ruby_ref, dist_dir)
   header = <<~HEADER
     // @lutaml/lutaml-model — self-contained build (Opal runtime embedded)
-    // Generated from lutaml-model v#{version}
+    // Generated from lutaml-model #{ruby_ref}
     // Opal runtime: @lutaml/opal-runtime
     //
   HEADER
@@ -250,7 +250,7 @@ ruby_dir = ENV.fetch("RUBY_DIR")
 dist_dir = ENV.fetch("DIST_DIR")
 runtime_root = ENV.fetch("RUNTIME_PKG_ROOT")
 scripts_dir = File.expand_path("scripts", runtime_root)
-version = ENV.fetch("VERSION")
+ruby_ref = ENV.fetch("RUBY_REF")
 
 FileUtils.mkdir_p(dist_dir)
 
@@ -265,5 +265,5 @@ File.write(no_opal_path, combined)
 warn "wrote #{no_opal_path} (#{combined.bytesize / 1024} KiB)"
 
 runtime = read_runtime(runtime_root)
-build_self_contained(combined, runtime, version, dist_dir)
+build_self_contained(combined, runtime, ruby_ref, dist_dir)
 write_types(dist_dir)

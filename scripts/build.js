@@ -108,6 +108,7 @@ function buildRuby() {
     DIST_DIR: DIST,
     RUNTIME_PKG_ROOT: ROOT,
     VERSION,
+    RUBY_REF,
     OPAL_PREFORK_DISABLE: "1",
   };
   run(`bundle exec ruby ${path.join(ROOT, "scripts", "build.rb")}`, {
