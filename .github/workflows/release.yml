@@ -22,11 +22,10 @@ on:
         required: true
         default: 'skip'
       ruby_ref:
-        description: Override the Ruby ref to build from (branch/tag/SHA). Defaults to LUTAML_MODEL_REF in scripts/build.js.
+        description: Override the Ruby ref to build from (branch/tag/SHA). Defaults to the pinned lutaml-model tag.
         required: false
-  # Stable release (do-release): must carry client_payload.ruby_ref, the
-  # lutaml-model tag to build; the build fails without it. No sender
-  # exists yet; releases are made by workflow_dispatch from the pin.
+  # Stable release: client_payload.ruby_ref names the lutaml-model ref
+  # to build (required). No sender yet; releases run via workflow_dispatch.
   # Dev build: fired by lutaml-model on every push to main. Publishes
   # under the npm `next` dist-tag (does NOT touch `latest`).
   repository_dispatch:
@@ -51,16 +50,14 @@ jobs:
             VERSION=$(node -p "require('./package.json').version")
           fi
 
-          # RUBY_REF. Empty: scripts/build.js uses its pinned
-          # LUTAML_MODEL_REF. This package's version is not the gem's,
-          # so it never names the ref.
+          # RUBY_REF
           if [ -n "${{ github.event.client_payload.ruby_ref }}" ]; then
             RUBY_REF="${{ github.event.client_payload.ruby_ref }}"
           else
             RUBY_REF="${{ github.event.inputs.ruby_ref }}"
           fi
           if [ "${{ github.event.action }}" = "do-release" ] && [ -z "$RUBY_REF" ]; then
-            echo "::error::do-release requires client_payload.ruby_ref (the lutaml-model tag to build)"
+            echo "::error::do-release requires client_payload.ruby_ref (the lutaml-model ref to build)"
             exit 1
           fi
 

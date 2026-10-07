@@ -40,27 +40,26 @@ under Windows or when running inside Opal itself).
 Opal 2 master adds a \`Threaded\` scheduler as well. Once Opal 2
 ships, the env var becomes unnecessary.
 
-## Build: pinned source
+## Build note: lutaml-model ref
 
-`scripts/build.js` builds from the lutaml-model release pinned in
-`LUTAML_MODEL_REF`; set `RUBY_REF` to build another tag, branch or SHA.
-This package's version is not the gem's, so it never names the ref.
-
-The pin is v0.8.96, the first release with the Opal fixes from
-lutaml/lutaml-model#914. Its moxml dependency resolves to the latest
-release, which includes the fixes from lutaml/moxml#320 (moxml 0.5.105 and later);
-\`scripts/build.rb\` fails if the bundle resolves an older moxml.
+The build clones lutaml-model at \`LUTAML_MODEL_REF\` in
+\`scripts/build.js\` (currently \`v0.8.96\`). Set \`RUBY_REF\` to
+build another branch/tag/SHA. moxml 0.5.105 or later is required
+(lutaml/moxml#320).
 
 ## Sync model
 
-This package is rebuilt automatically whenever the Ruby source changes:
+This package is built and released by the following triggers:
 
 | Ruby event | Trigger | JS dist-tag |
 |---|---|---|
-| Stable release | \`repository_dispatch(do-release)\` with \`client_payload.ruby_ref\` set to the tag to build (required; no sender yet) | \`latest\` |
-| Manual release | \`workflow_dispatch\` from the pin in \`LUTAML_MODEL_REF\`, or from its \`ruby_ref\` input | \`latest\` |
+| Stable release | \`repository_dispatch(do-release)\` with \`client_payload.ruby_ref\` | \`latest\` |
+| Manual release | \`workflow_dispatch\` | \`latest\` |
 | Push to \`main\` | \`repository_dispatch(js-sync-main)\` from lutaml-model's \`.github/workflows/js-sync.yml\` | \`next\` |
 | Pull request touching \`lib/\` | \`repository_dispatch(js-pr-check)\` from lutaml-model's \`.github/workflows/js-pr-check.yml\` | (no publish; smoke test only) |
+
+No lutaml-model workflow sends \`do-release\` yet; stable releases run via
+\`workflow_dispatch\`.
 
 Install the latest dev build with:
 

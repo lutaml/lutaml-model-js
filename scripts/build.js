@@ -12,10 +12,8 @@ const ROOT = process.cwd();
 const DIST = path.join(ROOT, "dist");
 const TMP = path.join(ROOT, ".tmp");
 
-// The lutaml-model release this package is built from. This package's
-// own version is not the gem's, so it cannot name the ref (`v0.1.0` is
-// an unrelated old gem tag). For dev builds, set RUBY_REF to a
-// branch/tag/SHA explicitly.
+// RUBY_REF defaults to the pinned LUTAML_MODEL_REF. For dev builds, set
+// RUBY_REF to a branch/SHA explicitly (e.g. "main" or a commit hash).
 const LUTAML_MODEL_REF = "v0.8.96";
 const RUBY_REF = process.env.RUBY_REF || LUTAML_MODEL_REF;
 const RUBY_REPO =
