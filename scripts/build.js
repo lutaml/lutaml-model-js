@@ -16,7 +16,7 @@ const TMP = path.join(ROOT, ".tmp");
 // own version is not the gem's, so it cannot name the ref (`v0.1.0` is
 // an unrelated old gem tag). For dev builds, set RUBY_REF to a
 // branch/tag/SHA explicitly.
-const LUTAML_MODEL_REF = "v0.8.88";
+const LUTAML_MODEL_REF = "v0.8.96";
 const RUBY_REF = process.env.RUBY_REF || LUTAML_MODEL_REF;
 const RUBY_REPO =
   process.env.RUBY_REPO || "https://github.com/lutaml/lutaml-model.git";

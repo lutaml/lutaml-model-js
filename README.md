@@ -46,9 +46,9 @@ ships, the env var becomes unnecessary.
 `LUTAML_MODEL_REF`; set `RUBY_REF` to build another tag, branch or SHA.
 This package's version is not the gem's, so it never names the ref.
 
-The Opal build of the pinned release does not boot yet: it needs the
-Opal fixes in lutaml/lutaml-model#914 and lutaml/moxml#320. This
-package will be updated once those are released.
+The pin is v0.8.96, the first release with the Opal fixes from
+lutaml/lutaml-model#914. Its moxml dependency resolves to the latest
+release, which includes the fixes from lutaml/moxml#320 (moxml 0.5.105 and later).
 
 ## Sync model
 
