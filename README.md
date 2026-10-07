@@ -48,7 +48,8 @@ This package's version is not the gem's, so it never names the ref.
 
 The pin is v0.8.96, the first release with the Opal fixes from
 lutaml/lutaml-model#914. Its moxml dependency resolves to the latest
-release, which includes the fixes from lutaml/moxml#320 (moxml 0.5.105 and later).
+release, which includes the fixes from lutaml/moxml#320 (moxml 0.5.105 and later);
+\`scripts/build.rb\` fails if the bundle resolves an older moxml.
 
 ## Sync model
 
@@ -56,7 +57,8 @@ This package is rebuilt automatically whenever the Ruby source changes:
 
 | Ruby event | Trigger | JS dist-tag |
 |---|---|---|
-| Tag push (stable release) | \`repository_dispatch(do-release)\` from lutaml-model's release chain | \`latest\` |
+| Stable release | \`repository_dispatch(do-release)\` with \`client_payload.ruby_ref\` set to the tag to build (required; no sender yet) | \`latest\` |
+| Manual release | \`workflow_dispatch\` from the pin in \`LUTAML_MODEL_REF\`, or from its \`ruby_ref\` input | \`latest\` |
 | Push to \`main\` | \`repository_dispatch(js-sync-main)\` from lutaml-model's \`.github/workflows/js-sync.yml\` | \`next\` |
 | Pull request touching \`lib/\` | \`repository_dispatch(js-pr-check)\` from lutaml-model's \`.github/workflows/js-pr-check.yml\` | (no publish; smoke test only) |
 

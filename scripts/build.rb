@@ -60,11 +60,14 @@ ENV["OPAL_PREFORK_DISABLE"] ||= "1"
 #   - rdf/linkeddata stack : large, only needed for jsonld/yamlld/turtle
 #                            formats which are optional in lutaml-model
 #   - fuzzy_match   : external gem not in the Opal bundle
-#   - leptris, leptris/xml/descriptor, liquid,
-#     openssl       : required by lutaml-model code paths outside the
-#                     XML/model surface this bundle ships (templating,
-#                     descriptors, digests); Opal still follows the
-#                     requires at compile time
+#   - liquid, leptris/xml/descriptor : required by lutaml-model code
+#                     paths outside the XML/model surface this bundle
+#                     ships (templating, compiled descriptors)
+#   - leptris, openssl : required by moxml (its leptris adapter and
+#                     config probe, and its XML-signature support),
+#                     which this bundle does not use
+#                     Opal still follows all of these requires at
+#                     compile time
 UPSTREAM_STUBS = %w[
   nokogiri
   ox
@@ -230,9 +233,25 @@ scripts_dir = File.expand_path("scripts", runtime_root)
 ruby_ref = ENV.fetch("RUBY_REF")
 # RUBY_REF goes into the bundle header comment, so only this ref set is accepted:
 # alphanumeric first, then up to 199 of [A-Za-z0-9._/-], no "..".
+# This check protects the header only. scripts/build.js has already used
+# RUBY_REF in its git commands before this script runs.
 unless ruby_ref.match?(%r{\A[A-Za-z0-9][A-Za-z0-9._/-]{0,199}\z}) && !ruby_ref.include?("..")
   abort "invalid RUBY_REF: #{ruby_ref.inspect}"
 end
+
+# The pinned lutaml-model release ships no Gemfile.lock and allows
+# moxml ~> 0.5.84, but its Opal build needs the fixes from
+# lutaml/moxml#320, first released in moxml 0.5.105.
+MOXML_MIN = Gem::Version.new("0.5.105")
+moxml_spec = Gem.loaded_specs["moxml"]
+if moxml_spec.nil? || moxml_spec.version < MOXML_MIN
+  found = moxml_spec ? moxml_spec.version.to_s : "none"
+  abort "moxml #{MOXML_MIN} or later is required for the Opal build " \
+        "(lutaml/moxml#320); bundle resolved #{found}"
+end
+
+# Fail on a missing runtime before anything is written to dist_dir.
+runtime = read_runtime(runtime_root)
 
 FileUtils.mkdir_p(dist_dir)
 
@@ -246,6 +265,5 @@ FileUtils.mkdir_p(dist_dir)
 File.write(no_opal_path, combined)
 warn "wrote #{no_opal_path} (#{combined.bytesize / 1024} KiB)"
 
-runtime = read_runtime(runtime_root)
 build_self_contained(combined, runtime, ruby_ref, dist_dir)
 write_types(dist_dir)

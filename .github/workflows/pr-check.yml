@@ -54,7 +54,6 @@ jobs:
         # must have read access to that fork.
         run: node scripts/build.js
         env:
-          VERSION: "0.0.0-pr.${{ github.event.client_payload.pr_number }}"
           RUBY_REF: ${{ github.event.client_payload.sha }}
           RUBY_REPO: "https://github.com/${{ github.event.client_payload.repo }}.git"
           OPAL_PREFORK_DISABLE: "1"
