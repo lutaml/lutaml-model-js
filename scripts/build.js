@@ -31,8 +31,14 @@ function run(cmd, opts = {}) {
 
 function latestGemVersion(name) {
   const url = `https://rubygems.org/api/v1/versions/${name}/latest.json`;
+  // --max-time bounds the lookup so a stalled RubyGems fails the build
+  // instead of hanging it until the CI job timeout.
   const out = run(`curl -fsSL --max-time 60 ${url}`, { stdio: ["ignore", "pipe", "inherit"] });
-  return JSON.parse(out).version;
+  const { version } = JSON.parse(out);
+  // The version is interpolated into a shell command; reject anything
+  // that is not a plain gem version.
+  if (!/^[0-9A-Za-z.]+$/.test(version || "")) throw new Error(`unexpected ${name} version: ${version}`);
+  return version;
 }
 
 function rmrf(p) { fs.rmSync(p, { recursive: true, force: true }); }

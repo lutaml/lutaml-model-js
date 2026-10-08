@@ -51,11 +51,7 @@ jobs:
           fi
 
           # RUBY_REF
-          if [ -n "${{ github.event.client_payload.ruby_ref }}" ]; then
-            RUBY_REF="${{ github.event.client_payload.ruby_ref }}"
-          else
-            RUBY_REF="${{ github.event.inputs.ruby_ref }}"
-          fi
+          RUBY_REF="${{ github.event.client_payload.ruby_ref || github.event.inputs.ruby_ref }}"
 
           # Dev builds (js-sync-main) publish under the `next` dist-tag
           # and use a SHA-stamped version so they don't collide with
