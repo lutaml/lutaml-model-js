@@ -40,26 +40,15 @@ under Windows or when running inside Opal itself).
 Opal 2 master adds a \`Threaded\` scheduler as well. Once Opal 2
 ships, the env var becomes unnecessary.
 
-## Build note: lutaml-model ref
-
-The build clones lutaml-model at \`LUTAML_MODEL_REF\` in
-\`scripts/build.js\` (currently \`v0.8.96\`). Set \`RUBY_REF\` to
-build another branch/tag/SHA. moxml 0.5.105 or later is required
-(lutaml/moxml#320).
-
 ## Sync model
 
-This package is built and released by the following triggers:
+This package is rebuilt automatically whenever the Ruby source changes:
 
 | Ruby event | Trigger | JS dist-tag |
 |---|---|---|
-| Stable release | \`repository_dispatch(do-release)\` with \`client_payload.ruby_ref\` | \`latest\` |
-| Manual release | \`workflow_dispatch\` | \`latest\` |
+| Tag push (stable release) | \`repository_dispatch(do-release)\` from lutaml-model's release chain | \`latest\` |
 | Push to \`main\` | \`repository_dispatch(js-sync-main)\` from lutaml-model's \`.github/workflows/js-sync.yml\` | \`next\` |
 | Pull request touching \`lib/\` | \`repository_dispatch(js-pr-check)\` from lutaml-model's \`.github/workflows/js-pr-check.yml\` | (no publish; smoke test only) |
-
-No lutaml-model workflow sends \`do-release\` yet; stable releases run via
-\`workflow_dispatch\`.
 
 Install the latest dev build with:
 

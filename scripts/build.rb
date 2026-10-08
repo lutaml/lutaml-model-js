@@ -201,7 +201,7 @@ end
 def build_self_contained(app_code, runtime, ruby_ref, dist_dir)
   header = <<~HEADER
     // @lutaml/lutaml-model — self-contained build (Opal runtime embedded)
-    // Generated from lutaml-model #{ruby_ref}
+    // Generated from lutaml-model #{ruby_ref.dump}
     // Opal runtime: @lutaml/opal-runtime
     //
   HEADER
@@ -227,23 +227,6 @@ dist_dir = ENV.fetch("DIST_DIR")
 runtime_root = ENV.fetch("RUNTIME_PKG_ROOT")
 scripts_dir = File.expand_path("scripts", runtime_root)
 ruby_ref = ENV.fetch("RUBY_REF")
-# RUBY_REF goes into the bundle header comment; restrict its characters.
-unless ruby_ref.match?(%r{\A[A-Za-z0-9][A-Za-z0-9._/-]{0,199}\z}) && !ruby_ref.include?("..")
-  abort "invalid RUBY_REF: #{ruby_ref.inspect}"
-end
-
-# lutaml-model allows moxml ~> 0.5.84; the Opal build needs 0.5.105
-# or later (lutaml/moxml#320).
-MOXML_MIN = Gem::Version.new("0.5.105")
-moxml_spec = Gem.loaded_specs["moxml"]
-if moxml_spec.nil? || moxml_spec.version < MOXML_MIN
-  found = moxml_spec ? moxml_spec.version.to_s : "none"
-  abort "moxml #{MOXML_MIN} or later is required for the Opal build " \
-        "(lutaml/moxml#320); bundle resolved #{found}"
-end
-
-# Read the runtime before writing to dist_dir.
-runtime = read_runtime(runtime_root)
 
 FileUtils.mkdir_p(dist_dir)
 
@@ -257,5 +240,6 @@ FileUtils.mkdir_p(dist_dir)
 File.write(no_opal_path, combined)
 warn "wrote #{no_opal_path} (#{combined.bytesize / 1024} KiB)"
 
+runtime = read_runtime(runtime_root)
 build_self_contained(combined, runtime, ruby_ref, dist_dir)
 write_types(dist_dir)

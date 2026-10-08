@@ -22,10 +22,10 @@ on:
         required: true
         default: 'skip'
       ruby_ref:
-        description: Override the Ruby ref to build from (branch/tag/SHA). Defaults to the pinned lutaml-model tag.
+        description: Override the Ruby ref to build from (branch/tag/SHA). Defaults to the latest lutaml-model release on RubyGems.
         required: false
-  # Stable release: client_payload.ruby_ref names the lutaml-model ref
-  # to build (required). No sender yet; releases run via workflow_dispatch.
+  # Stable release: fired by lutaml-model's release chain after the gem
+  # passes its tests and is published to RubyGems.
   # Dev build: fired by lutaml-model on every push to main. Publishes
   # under the npm `next` dist-tag (does NOT touch `latest`).
   repository_dispatch:
@@ -55,10 +55,6 @@ jobs:
             RUBY_REF="${{ github.event.client_payload.ruby_ref }}"
           else
             RUBY_REF="${{ github.event.inputs.ruby_ref }}"
-          fi
-          if [ "${{ github.event.action }}" = "do-release" ] && [ -z "$RUBY_REF" ]; then
-            echo "::error::do-release requires client_payload.ruby_ref (the lutaml-model ref to build)"
-            exit 1
           fi
 
           # Dev builds (js-sync-main) publish under the `next` dist-tag
