@@ -20,7 +20,7 @@ const RUBY_REPO =
   process.env.RUBY_REPO || "https://github.com/lutaml/lutaml-model.git";
 
 // Runs a command with an argument array and no shell, so RUBY_REF,
-// RUBY_REPO and paths are passed as single arguments, never parsed.
+// RUBY_REPO and paths are passed as single arguments, never parsed by a shell.
 function run(cmd, args, opts = {}) {
   const shown = [cmd, ...args].join(" ");
   console.error(`$ ${shown}`);
@@ -56,14 +56,14 @@ function checkoutLutamlModel() {
   const isSha = /^[0-9a-f]{40}$/i.test(RUBY_REF);
   if (isSha) {
     run("git", ["init", TMP]);
-    run("git", ["-C", TMP, "remote", "add", "origin", "--", RUBY_REPO]);
+    run("git", ["-C", TMP, "remote", "add", "origin", RUBY_REPO]);
     run("git", ["-C", TMP, "fetch", "--depth", "1", "origin", RUBY_REF]);
     run("git", ["-C", TMP, "checkout", "FETCH_HEAD"]);
     run("git", ["-C", TMP, "submodule", "update", "--init", "--recursive", "--depth", "1"]);
   } else {
     run("git", [
       "clone", "--depth", "1", "--recurse-submodules", "--shallow-submodules",
-      `--branch=${RUBY_REF}`, "--", RUBY_REPO, TMP,
+      "--branch", RUBY_REF, RUBY_REPO, TMP,
     ]);
   }
 
