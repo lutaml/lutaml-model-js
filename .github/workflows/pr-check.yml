@@ -49,9 +49,7 @@ jobs:
           PR_SHA: ${{ github.event.client_payload.sha }}
           PR_REF: ${{ github.event.client_payload.ref }}
         run: |
-          echo "PR: $PR_REPO#$PR_NUMBER"
-          echo "Head SHA: $PR_SHA"
-          echo "Head ref: $PR_REF"
+          printf 'PR: %q#%q\nHead SHA: %q\nHead ref: %q\n' "$PR_REPO" "$PR_NUMBER" "$PR_SHA" "$PR_REF"
 
       - name: Build from PR head
         # client_payload.repo is "lutaml/lutaml-model" for same-org PRs.
