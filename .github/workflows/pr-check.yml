@@ -49,6 +49,8 @@ jobs:
           PR_SHA: ${{ github.event.client_payload.sha }}
           PR_REF: ${{ github.event.client_payload.ref }}
         run: |
+          [[ "$PR_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::invalid sha"; exit 1; }
+          [[ "$PR_REPO" != *$'\n'* ]] || { echo "::error::invalid repo"; exit 1; }
           printf 'PR: %q#%q\nHead SHA: %q\nHead ref: %q\n' "$PR_REPO" "$PR_NUMBER" "$PR_SHA" "$PR_REF"
 
       - name: Build from PR head
