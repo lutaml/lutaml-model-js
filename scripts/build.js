@@ -19,8 +19,6 @@ const RUBY_REF = process.env.RUBY_REF || `v${latestGemVersion("lutaml-model")}`;
 const RUBY_REPO =
   process.env.RUBY_REPO || "https://github.com/lutaml/lutaml-model.git";
 
-// Runs a command with an argument array and no shell, so RUBY_REF,
-// RUBY_REPO and paths are passed as single arguments, never parsed by a shell.
 function run(cmd, args, opts = {}) {
   const shown = [cmd, ...args].join(" ");
   console.error(`$ ${shown}`);

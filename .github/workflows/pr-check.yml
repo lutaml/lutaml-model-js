@@ -42,16 +42,16 @@ jobs:
         run: npm install
 
       - name: Print trigger payload
-        # For audit: which PR triggered this build. %q keeps each
-        # caller-controlled value on one line, so it cannot start a
-        # workflow command.
+        # For audit: which PR triggered this build.
         env:
           PR_REPO: ${{ github.event.client_payload.repo }}
           PR_NUMBER: ${{ github.event.client_payload.pr_number }}
           PR_SHA: ${{ github.event.client_payload.sha }}
           PR_REF: ${{ github.event.client_payload.ref }}
         run: |
-          printf 'PR: %q#%q\nHead SHA: %q\nHead ref: %q\n' "$PR_REPO" "$PR_NUMBER" "$PR_SHA" "$PR_REF"
+          echo "PR: $PR_REPO#$PR_NUMBER"
+          echo "Head SHA: $PR_SHA"
+          echo "Head ref: $PR_REF"
 
       - name: Build from PR head
         # client_payload.repo is "lutaml/lutaml-model" for same-org PRs.

@@ -39,9 +39,6 @@ jobs:
 
       - name: Resolve build inputs
         id: inputs
-        # Payload and input values arrive through env, never interpolated
-        # into the script. Each one written to $GITHUB_OUTPUT must be a
-        # single line, or it could add another output.
         env:
           EVENT_ACTION: ${{ github.event.action }}
           PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
@@ -49,30 +46,25 @@ jobs:
           RUBY_REF: ${{ github.event.client_payload.ruby_ref || github.event.inputs.ruby_ref }}
           PAYLOAD_SHA: ${{ github.event.client_payload.sha }}
         run: |
-          # The value is caller-controlled: %q keeps it on one line, so
-          # an embedded newline cannot start a second workflow command.
-          fail() { printf '::error::%s: %q\n' "$1" "$2"; exit 1; }
-
           # VERSION
           VERSION="${PAYLOAD_VERSION:-$INPUT_VERSION}"
           if [ -z "$VERSION" ] || [ "$VERSION" = "skip" ]; then
             VERSION=$(node -p "require('./package.json').version")
           fi
-          # A leading "-" would reach `npm version` as an option.
-          [[ "$VERSION" != -* && "$VERSION" != *$'\n'* ]] || fail "invalid version" "$VERSION"
-
-          # RUBY_REF
-          [[ "$RUBY_REF" != *$'\n'* ]] || fail "invalid ruby_ref" "$RUBY_REF"
 
           # Dev builds (js-sync-main) publish under the `next` dist-tag
           # and use a SHA-stamped version so they don't collide with
           # stable releases.
           if [ "$EVENT_ACTION" = "js-sync-main" ]; then
-            [[ "$PAYLOAD_SHA" =~ ^[0-9a-f]{40}$ ]] || fail "invalid sha" "$PAYLOAD_SHA"
+            [[ "$PAYLOAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::invalid sha"; exit 1; }
             VERSION="0.0.0-dev.$PAYLOAD_SHA"
             RUBY_REF="$PAYLOAD_SHA"
             DIST_TAG="next"
           else
+            # A leading "-" would reach `npm version` as an option; a
+            # newline would add a line to $GITHUB_OUTPUT.
+            [[ "$VERSION" != -* && "$VERSION" != *$'\n'* ]] || { echo "::error::invalid version"; exit 1; }
+            [[ "$RUBY_REF" != *$'\n'* ]] || { echo "::error::invalid ruby_ref"; exit 1; }
             DIST_TAG="latest"
           fi
 
