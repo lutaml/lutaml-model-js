@@ -22,7 +22,7 @@ on:
         required: true
         default: 'skip'
       ruby_ref:
-        description: Override the Ruby ref to build from (branch/tag/SHA). Defaults to v<next_version>.
+        description: Override the Ruby ref to build from (branch/tag/SHA). Defaults to the latest lutaml-model release on RubyGems.
         required: false
   # Stable release: fired by lutaml-model's release chain after the gem
   # passes its tests and is published to RubyGems.
@@ -51,15 +51,7 @@ jobs:
           fi
 
           # RUBY_REF
-          if [ -n "${{ github.event.client_payload.ruby_ref }}" ]; then
-            RUBY_REF="${{ github.event.client_payload.ruby_ref }}"
-          elif [ -n "${{ github.event.inputs.ruby_ref }}" ]; then
-            RUBY_REF="${{ github.event.inputs.ruby_ref }}"
-          elif [ "$VERSION" != "skip" ] && [ -n "$VERSION" ]; then
-            RUBY_REF="v$VERSION"
-          else
-            RUBY_REF="main"
-          fi
+          RUBY_REF="${{ github.event.client_payload.ruby_ref || github.event.inputs.ruby_ref }}"
 
           # Dev builds (js-sync-main) publish under the `next` dist-tag
           # and use a SHA-stamped version so they don't collide with
@@ -111,7 +103,6 @@ jobs:
       - name: Build
         run: node scripts/build.js
         env:
-          VERSION: ${{ steps.inputs.outputs.version }}
           RUBY_REF: ${{ steps.inputs.outputs.ruby_ref }}
           OPAL_PREFORK_DISABLE: "1"
 

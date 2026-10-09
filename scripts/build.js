@@ -1,6 +1,6 @@
 // Build script for @lutaml/lutaml-model.
 //
-// Clones lutaml-model at RUBY_REF (default: the tag matching VERSION),
+// Clones lutaml-model at RUBY_REF (default: the latest release on RubyGems),
 // checks out its submodules (the opal-oga and opal-ruby-ll forks),
 // regenerates the ragel/ruby-ll outputs the forks gitignore, then runs
 // the Opal build via scripts/build.rb.
@@ -12,10 +12,10 @@ const ROOT = process.cwd();
 const DIST = path.join(ROOT, "dist");
 const TMP = path.join(ROOT, ".tmp");
 
-const VERSION = process.env.VERSION || require("../package.json").version;
-// RUBY_REF defaults to the tag matching VERSION. For dev builds, set
-// RUBY_REF to a branch/SHA explicitly (e.g. "main" or a commit hash).
-const RUBY_REF = process.env.RUBY_REF || `v${VERSION}`;
+// RUBY_REF defaults to the tag of the latest lutaml-model release on
+// RubyGems. For dev builds, set RUBY_REF to a branch/SHA explicitly
+// (e.g. "main" or a commit hash).
+const RUBY_REF = process.env.RUBY_REF || `v${latestGemVersion("lutaml-model")}`;
 const RUBY_REPO =
   process.env.RUBY_REPO || "https://github.com/lutaml/lutaml-model.git";
 
@@ -27,6 +27,18 @@ function run(cmd, opts = {}) {
     console.error(`command failed: ${cmd}`);
     process.exit(1);
   }
+}
+
+function latestGemVersion(name) {
+  const url = `https://rubygems.org/api/v1/versions/${name}/latest.json`;
+  // --max-time bounds the lookup so a stalled RubyGems fails the build
+  // instead of hanging it until the CI job timeout.
+  const out = run(`curl -fsSL --max-time 60 ${url}`, { stdio: ["ignore", "pipe", "inherit"] });
+  const { version } = JSON.parse(out);
+  // The version is interpolated into a shell command; reject anything
+  // that is not a plain gem version.
+  if (!/^[0-9A-Za-z.]+$/.test(version || "")) throw new Error(`unexpected ${name} version: ${version}`);
+  return version;
 }
 
 function rmrf(p) { fs.rmSync(p, { recursive: true, force: true }); }
@@ -74,7 +86,7 @@ function buildRuby() {
     RUBY_DIR: TMP,
     DIST_DIR: DIST,
     RUNTIME_PKG_ROOT: ROOT,
-    VERSION,
+    RUBY_REF,
     OPAL_PREFORK_DISABLE: "1",
   };
   run(`bundle exec ruby ${path.join(ROOT, "scripts", "build.rb")}`, {

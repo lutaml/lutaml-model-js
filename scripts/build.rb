@@ -43,11 +43,6 @@ ENV["OPAL_PREFORK_DISABLE"] ||= "1"
 #                     `require "weakref"` at compile time even though
 #                     the `unless Lutaml::Model.opal?` guard skips it
 #                     at runtime
-#   - stringio      : moxml's rexml_compat.rb defines a bare
-#                     `class StringIO` (no superclass) for Opal;
-#                     Opal's stdlib stringio.rb uses `< ::IO`, which
-#                     clashes when both are loaded. Stub the stdlib
-#                     version so moxml's takes precedence.
 #   - oga/xml/sax_parser, oga/html/sax_parser, oga/xml/pull_parser:
 #                     the opal-oga fork's lib/oga.rb requires these
 #                     unconditionally, but they call `Kernel#eval` at
@@ -65,6 +60,10 @@ ENV["OPAL_PREFORK_DISABLE"] ||= "1"
 #   - rdf/linkeddata stack : large, only needed for jsonld/yamlld/turtle
 #                            formats which are optional in lutaml-model
 #   - fuzzy_match   : external gem not in the Opal bundle
+#   - liquid, leptris/xml/descriptor : lutaml-model templating and
+#                     compiled descriptors, outside the bundled surface
+#   - leptris, openssl : moxml's leptris adapter and XML signatures,
+#                     not used by the bundle
 UPSTREAM_STUBS = %w[
   nokogiri
   ox
@@ -90,6 +89,10 @@ UPSTREAM_STUBS = %w[
   rdf/vocab
   spira
   fuzzy_match
+  leptris
+  liquid
+  leptris/xml/descriptor
+  openssl
 ].freeze
 
 ENTRY = "js_bundle_entry"
@@ -191,15 +194,14 @@ def read_runtime(runtime_pkg_root)
     warn "read runtime from #{p} (#{runtime.bytesize / 1024} KiB)"
     return runtime
   end
-  warn "Could not locate @lutaml/opal-runtime/dist/runtime.js. " \
-       "Self-contained flavor will be empty."
-  ""
+  abort "Could not locate @lutaml/opal-runtime/dist/runtime.js under " \
+        "#{runtime_pkg_root}/node_modules; run npm install first"
 end
 
-def build_self_contained(app_code, runtime, version, dist_dir)
+def build_self_contained(app_code, runtime, ruby_ref, dist_dir)
   header = <<~HEADER
     // @lutaml/lutaml-model — self-contained build (Opal runtime embedded)
-    // Generated from lutaml-model v#{version}
+    // Generated from lutaml-model #{ruby_ref.dump}
     // Opal runtime: @lutaml/opal-runtime
     //
   HEADER
@@ -224,7 +226,7 @@ ruby_dir = ENV.fetch("RUBY_DIR")
 dist_dir = ENV.fetch("DIST_DIR")
 runtime_root = ENV.fetch("RUNTIME_PKG_ROOT")
 scripts_dir = File.expand_path("scripts", runtime_root)
-version = ENV.fetch("VERSION")
+ruby_ref = ENV.fetch("RUBY_REF")
 
 FileUtils.mkdir_p(dist_dir)
 
@@ -239,5 +241,5 @@ File.write(no_opal_path, combined)
 warn "wrote #{no_opal_path} (#{combined.bytesize / 1024} KiB)"
 
 runtime = read_runtime(runtime_root)
-build_self_contained(combined, runtime, version, dist_dir)
+build_self_contained(combined, runtime, ruby_ref, dist_dir)
 write_types(dist_dir)
