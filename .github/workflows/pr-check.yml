@@ -43,10 +43,15 @@ jobs:
 
       - name: Print trigger payload
         # For audit: which PR triggered this build.
+        env:
+          PR_REPO: ${{ github.event.client_payload.repo }}
+          PR_NUMBER: ${{ github.event.client_payload.pr_number }}
+          PR_SHA: ${{ github.event.client_payload.sha }}
+          PR_REF: ${{ github.event.client_payload.ref }}
         run: |
-          echo "PR: ${{ github.event.client_payload.repo }}#${{ github.event.client_payload.pr_number }}"
-          echo "Head SHA: ${{ github.event.client_payload.sha }}"
-          echo "Head ref: ${{ github.event.client_payload.ref }}"
+          [[ "$PR_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::invalid sha"; exit 1; }
+          [[ "$PR_REPO" != *$'\n'* ]] || { echo "::error::invalid repo"; exit 1; }
+          printf 'PR: %q#%q\nHead SHA: %q\nHead ref: %q\n' "$PR_REPO" "$PR_NUMBER" "$PR_SHA" "$PR_REF"
 
       - name: Build from PR head
         # client_payload.repo is "lutaml/lutaml-model" for same-org PRs.

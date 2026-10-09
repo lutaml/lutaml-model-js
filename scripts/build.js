@@ -6,7 +6,7 @@
 // the Opal build via scripts/build.rb.
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
+const { spawnSync } = require("child_process");
 
 const ROOT = process.cwd();
 const DIST = path.join(ROOT, "dist");
@@ -19,26 +19,23 @@ const RUBY_REF = process.env.RUBY_REF || `v${latestGemVersion("lutaml-model")}`;
 const RUBY_REPO =
   process.env.RUBY_REPO || "https://github.com/lutaml/lutaml-model.git";
 
-function run(cmd, opts = {}) {
-  console.error(`$ ${cmd}`);
-  try {
-    return execSync(cmd, { stdio: ["ignore", "inherit", "inherit"], ...opts });
-  } catch (err) {
-    console.error(`command failed: ${cmd}`);
+function run(cmd, args, opts = {}) {
+  const shown = [cmd, ...args].join(" ");
+  console.error(`$ ${shown}`);
+  const res = spawnSync(cmd, args, { stdio: ["ignore", "inherit", "inherit"], ...opts });
+  if (res.error || res.status !== 0) {
+    console.error(`command failed: ${shown}`);
     process.exit(1);
   }
+  return res.stdout;
 }
 
 function latestGemVersion(name) {
   const url = `https://rubygems.org/api/v1/versions/${name}/latest.json`;
   // --max-time bounds the lookup so a stalled RubyGems fails the build
   // instead of hanging it until the CI job timeout.
-  const out = run(`curl -fsSL --max-time 60 ${url}`, { stdio: ["ignore", "pipe", "inherit"] });
-  const { version } = JSON.parse(out);
-  // The version is interpolated into a shell command; reject anything
-  // that is not a plain gem version.
-  if (!/^[0-9A-Za-z.]+$/.test(version || "")) throw new Error(`unexpected ${name} version: ${version}`);
-  return version;
+  const out = run("curl", ["-fsSL", "--max-time", "60", url], { stdio: ["ignore", "pipe", "inherit"] });
+  return JSON.parse(out).version;
 }
 
 function rmrf(p) { fs.rmSync(p, { recursive: true, force: true }); }
@@ -56,28 +53,26 @@ function checkoutLutamlModel() {
   // do a shallow fetch of the exact SHA instead.
   const isSha = /^[0-9a-f]{40}$/i.test(RUBY_REF);
   if (isSha) {
-    run(`git init ${TMP}`);
-    run(`git -C ${TMP} remote add origin ${RUBY_REPO}`);
-    run(`git -C ${TMP} fetch --depth 1 origin ${RUBY_REF}`);
-    run(`git -C ${TMP} checkout FETCH_HEAD`);
-    run(
-      `git -C ${TMP} submodule update --init --recursive --depth 1`,
-    );
+    run("git", ["init", TMP]);
+    run("git", ["-C", TMP, "remote", "add", "origin", RUBY_REPO]);
+    run("git", ["-C", TMP, "fetch", "--depth", "1", "origin", RUBY_REF]);
+    run("git", ["-C", TMP, "checkout", "FETCH_HEAD"]);
+    run("git", ["-C", TMP, "submodule", "update", "--init", "--recursive", "--depth", "1"]);
   } else {
-    run(
-      `git clone --depth 1 --recurse-submodules --shallow-submodules ` +
-        `--branch ${RUBY_REF} ${RUBY_REPO} ${TMP}`,
-    );
+    run("git", [
+      "clone", "--depth", "1", "--recurse-submodules", "--shallow-submodules",
+      "--branch", RUBY_REF, RUBY_REPO, TMP,
+    ]);
   }
 
   // The forks ship grammar sources (.rl/.rll) but gitignore the
   // generated .rb/.c outputs. Ragel + ruby-ll must regenerate them
   // before bundle install compiles the C extensions via each fork's
   // extconf.rb (which requires ext/c/lexer.c to exist).
-  run("gem install ruby-ll --no-document");
-  run("rake vendor:prepare", { cwd: TMP });
+  run("gem", ["install", "ruby-ll", "--no-document"]);
+  run("rake", ["vendor:prepare"], { cwd: TMP });
 
-  run("bundle install", { cwd: TMP });
+  run("bundle", ["install"], { cwd: TMP });
 }
 
 function buildRuby() {
@@ -89,7 +84,7 @@ function buildRuby() {
     RUBY_REF,
     OPAL_PREFORK_DISABLE: "1",
   };
-  run(`bundle exec ruby ${path.join(ROOT, "scripts", "build.rb")}`, {
+  run("bundle", ["exec", "ruby", path.join(ROOT, "scripts", "build.rb")], {
     cwd: TMP,
     env,
   });
