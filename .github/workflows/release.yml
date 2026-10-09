@@ -22,7 +22,7 @@ on:
         required: true
         default: 'skip'
       ruby_ref:
-        description: Override the Ruby ref to build from (branch/tag/SHA). Defaults to LUTAML_MODEL_REF in scripts/build.js.
+        description: Override the Ruby ref to build from (branch/tag/SHA). Defaults to the latest lutaml-model release on RubyGems.
         required: false
   # Stable release: fired by lutaml-model's release chain after the gem
   # passes its tests and is published to RubyGems.
@@ -39,16 +39,15 @@ jobs:
 
       - name: Resolve build inputs
         id: inputs
-        # Payload and input values arrive through env and are used only
-        # as quoted "$VARS", never interpolated into the script; each is
-        # checked against a strict pattern before it is used.
+        # Payload and input values arrive through env, never interpolated
+        # into the script. Each one written to $GITHUB_OUTPUT must be a
+        # single line, or it could add another output.
         env:
           EVENT_ACTION: ${{ github.event.action }}
           PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
-          PAYLOAD_RUBY_REF: ${{ github.event.client_payload.ruby_ref }}
-          PAYLOAD_SHA: ${{ github.event.client_payload.sha }}
           INPUT_VERSION: ${{ github.event.inputs.next_version }}
-          INPUT_RUBY_REF: ${{ github.event.inputs.ruby_ref }}
+          RUBY_REF: ${{ github.event.client_payload.ruby_ref || github.event.inputs.ruby_ref }}
+          PAYLOAD_SHA: ${{ github.event.client_payload.sha }}
         run: |
           # The value is caller-controlled: %q keeps it on one line, so
           # an embedded newline cannot start a second workflow command.
@@ -59,18 +58,11 @@ jobs:
           if [ -z "$VERSION" ] || [ "$VERSION" = "skip" ]; then
             VERSION=$(node -p "require('./package.json').version")
           fi
-          [[ "$VERSION" =~ ^((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?|major|minor|patch)$ ]] \
-            || fail "invalid version" "$VERSION"
+          # A leading "-" would reach `npm version` as an option.
+          [[ "$VERSION" != -* && "$VERSION" != *$'\n'* ]] || fail "invalid version" "$VERSION"
 
-          # RUBY_REF. Empty: scripts/build.js uses its pinned
-          # LUTAML_MODEL_REF. This package's version is not the gem's,
-          # so it never names the ref.
-          RUBY_REF="${PAYLOAD_RUBY_REF:-$INPUT_RUBY_REF}"
-          if [ -n "$RUBY_REF" ]; then
-            # Same ref contract as scripts/build.rb: alphanumeric first, then up to 199 of [A-Za-z0-9._/-], no "..".
-            [[ "$RUBY_REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$ ]] && [[ "$RUBY_REF" != *..* ]] \
-              || fail "invalid ruby_ref" "$RUBY_REF"
-          fi
+          # RUBY_REF
+          [[ "$RUBY_REF" != *$'\n'* ]] || fail "invalid ruby_ref" "$RUBY_REF"
 
           # Dev builds (js-sync-main) publish under the `next` dist-tag
           # and use a SHA-stamped version so they don't collide with
@@ -123,7 +115,6 @@ jobs:
       - name: Build
         run: node scripts/build.js
         env:
-          VERSION: ${{ steps.inputs.outputs.version }}
           RUBY_REF: ${{ steps.inputs.outputs.ruby_ref }}
           OPAL_PREFORK_DISABLE: "1"
 

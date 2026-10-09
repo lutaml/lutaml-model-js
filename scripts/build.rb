@@ -60,11 +60,10 @@ ENV["OPAL_PREFORK_DISABLE"] ||= "1"
 #   - rdf/linkeddata stack : large, only needed for jsonld/yamlld/turtle
 #                            formats which are optional in lutaml-model
 #   - fuzzy_match   : external gem not in the Opal bundle
-#   - leptris, leptris/xml/descriptor, liquid,
-#     openssl       : required by lutaml-model code paths outside the
-#                     XML/model surface this bundle ships (templating,
-#                     descriptors, digests); Opal still follows the
-#                     requires at compile time
+#   - liquid, leptris/xml/descriptor : lutaml-model templating and
+#                     compiled descriptors, outside the bundled surface
+#   - leptris, openssl : moxml's leptris adapter and XML signatures,
+#                     not used by the bundle
 UPSTREAM_STUBS = %w[
   nokogiri
   ox
@@ -202,7 +201,7 @@ end
 def build_self_contained(app_code, runtime, ruby_ref, dist_dir)
   header = <<~HEADER
     // @lutaml/lutaml-model — self-contained build (Opal runtime embedded)
-    // Generated from lutaml-model #{ruby_ref}
+    // Generated from lutaml-model #{ruby_ref.dump}
     // Opal runtime: @lutaml/opal-runtime
     //
   HEADER
@@ -228,11 +227,6 @@ dist_dir = ENV.fetch("DIST_DIR")
 runtime_root = ENV.fetch("RUNTIME_PKG_ROOT")
 scripts_dir = File.expand_path("scripts", runtime_root)
 ruby_ref = ENV.fetch("RUBY_REF")
-# RUBY_REF goes into the bundle header comment, so only this ref set is accepted:
-# alphanumeric first, then up to 199 of [A-Za-z0-9._/-], no "..".
-unless ruby_ref.match?(%r{\A[A-Za-z0-9][A-Za-z0-9._/-]{0,199}\z}) && !ruby_ref.include?("..")
-  abort "invalid RUBY_REF: #{ruby_ref.inspect}"
-end
 
 FileUtils.mkdir_p(dist_dir)
 

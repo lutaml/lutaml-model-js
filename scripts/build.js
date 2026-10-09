@@ -1,6 +1,6 @@
 // Build script for @lutaml/lutaml-model.
 //
-// Clones lutaml-model at RUBY_REF (default: LUTAML_MODEL_REF below),
+// Clones lutaml-model at RUBY_REF (default: the latest release on RubyGems),
 // checks out its submodules (the opal-oga and opal-ruby-ll forks),
 // regenerates the ragel/ruby-ll outputs the forks gitignore, then runs
 // the Opal build via scripts/build.rb.
@@ -12,12 +12,10 @@ const ROOT = process.cwd();
 const DIST = path.join(ROOT, "dist");
 const TMP = path.join(ROOT, ".tmp");
 
-// The lutaml-model release this package is built from. This package's
-// own version is not the gem's, so it cannot name the ref (`v0.1.0` is
-// an unrelated old gem tag). For dev builds, set RUBY_REF to a
-// branch/tag/SHA explicitly.
-const LUTAML_MODEL_REF = "v0.8.88";
-const RUBY_REF = process.env.RUBY_REF || LUTAML_MODEL_REF;
+// RUBY_REF defaults to the tag of the latest lutaml-model release on
+// RubyGems. For dev builds, set RUBY_REF to a branch/SHA explicitly
+// (e.g. "main" or a commit hash).
+const RUBY_REF = process.env.RUBY_REF || `v${latestGemVersion("lutaml-model")}`;
 const RUBY_REPO =
   process.env.RUBY_REPO || "https://github.com/lutaml/lutaml-model.git";
 
@@ -31,6 +29,15 @@ function run(cmd, args, opts = {}) {
     console.error(`command failed: ${shown}`);
     process.exit(1);
   }
+  return res.stdout;
+}
+
+function latestGemVersion(name) {
+  const url = `https://rubygems.org/api/v1/versions/${name}/latest.json`;
+  // --max-time bounds the lookup so a stalled RubyGems fails the build
+  // instead of hanging it until the CI job timeout.
+  const out = run("curl", ["-fsSL", "--max-time", "60", url], { stdio: ["ignore", "pipe", "inherit"] });
+  return JSON.parse(out).version;
 }
 
 function rmrf(p) { fs.rmSync(p, { recursive: true, force: true }); }

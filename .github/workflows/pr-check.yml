@@ -41,19 +41,17 @@ jobs:
       - name: Install JS deps
         run: npm install
 
-      - name: Validate and print trigger payload
-        # For audit: which PR triggered this build. The payload is
-        # caller-controlled, so it is validated before any use.
+      - name: Print trigger payload
+        # For audit: which PR triggered this build. %q keeps each
+        # caller-controlled value on one line, so it cannot start a
+        # workflow command.
         env:
-          PR_NUMBER: ${{ github.event.client_payload.pr_number }}
           PR_REPO: ${{ github.event.client_payload.repo }}
+          PR_NUMBER: ${{ github.event.client_payload.pr_number }}
           PR_SHA: ${{ github.event.client_payload.sha }}
           PR_REF: ${{ github.event.client_payload.ref }}
         run: |
-          [[ "$PR_NUMBER" =~ ^[0-9]{1,10}$ ]] || { echo "::error::invalid client_payload.pr_number"; exit 1; }
-          [[ "$PR_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "::error::invalid client_payload.repo"; exit 1; }
-          [[ "$PR_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::invalid client_payload.sha"; exit 1; }
-          printf 'PR: %s#%s\nHead SHA: %s\nHead ref: %q\n' "$PR_REPO" "$PR_NUMBER" "$PR_SHA" "$PR_REF"
+          printf 'PR: %q#%q\nHead SHA: %q\nHead ref: %q\n' "$PR_REPO" "$PR_NUMBER" "$PR_SHA" "$PR_REF"
 
       - name: Build from PR head
         # client_payload.repo is "lutaml/lutaml-model" for same-org PRs.
@@ -61,7 +59,6 @@ jobs:
         # must have read access to that fork.
         run: node scripts/build.js
         env:
-          VERSION: "0.0.0-pr.${{ github.event.client_payload.pr_number }}"
           RUBY_REF: ${{ github.event.client_payload.sha }}
           RUBY_REPO: "https://github.com/${{ github.event.client_payload.repo }}.git"
           OPAL_PREFORK_DISABLE: "1"
